@@ -13,13 +13,13 @@ setup(
     ],
     install_requires=['setuptools'],
     zip_safe=True,
-    maintainer='ubuntu',
-    maintainer_email='ubuntu@todo.todo',
-    description='TODO: Package description',
-    license='TODO: License declaration',
+    maintainer='Vasily Morzhakov',
+    maintainer_email='morzhakovva@gmail.com',
+    description='The package to push/pull streams to/from Rembrain backend',
+    license='Apache License, Version 2.0',
     tests_require=['pytest'],
     entry_points={
-        'console_scripts': [
+        'console_scripts': ['gate=rembrain_gate_ros2.main:main_func'
         ],
     },
 )
