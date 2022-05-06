@@ -19,7 +19,6 @@ setup(
     license='Apache License, Version 2.0',
     tests_require=['pytest'],
     entry_points={
-        'console_scripts': ['gate=rembrain_gate_ros2.main:main_func'
-        ],
+        'console_scripts': ['gate=rembrain_gate_ros2.main:main_func'],
     },
 )

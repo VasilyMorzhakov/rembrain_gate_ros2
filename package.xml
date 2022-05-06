@@ -13,6 +13,8 @@
   <test_depend>python3-pytest</test_depend>
 
   <depend>rclpy</depend>
+  <depend>std_msgs</depend>
+  <depend>git+https://github.com/VasilyMorzhakov/rembrain_robotframework@v0.1.4</depend>
 
   <export>
     <build_type>ament_python</build_type>
