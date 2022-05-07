@@ -2,7 +2,7 @@ import os
 import logging
 import rclpy
 from rclpy.node import Node
-
+import json
 from std_msgs.msg import String
 
 import os
@@ -53,7 +53,7 @@ class CommandWorker(RobotProcess):
             if not self.consume_queues["commands_ros"].empty():
                 command: dict = self.consume(queue_name="commands_ros")
                 msg = String()
-                msg.data = str(command)
+                msg.data = json.dumps(command)
                 self.pub.pub(msg)
 
 class DepthMixin(RobotProcess):
