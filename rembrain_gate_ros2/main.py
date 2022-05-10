@@ -1,5 +1,7 @@
 import os
 import logging
+
+import numpy
 import rclpy
 from rclpy.node import Node
 import json
@@ -27,7 +29,7 @@ class Sub(RobotProcess):
         self.node = Node("sub")
         self.subscription = self.node.create_subscription(
             Image,
-            'Image',
+            'realsense_frame',
             self.listener_callback,
             10)
         self.subscription  # prevent unused variable warning
@@ -35,6 +37,24 @@ class Sub(RobotProcess):
 
     def listener_callback(self, msg):
         self.publish(msg.data)
+
+    def run(self) -> None:
+        rclpy.spin(self.node)
+
+class StateReceiver(RobotProcess):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.node = Node("StateReceiver")
+        self.subscription = self.node.create_subscription(
+            String,
+            'robot_state',
+            self.listener_callback,
+            10)
+        self.subscription  # prevent unused variable warning
+
+
+    def listener_callback(self, msg):
+        self.publish(msg.data.encode("utf-8"))
 
     def run(self) -> None:
         rclpy.spin(self.node)
@@ -59,8 +79,17 @@ class CommandWorker(RobotProcess):
 class DepthMixin(RobotProcess):
     def run(self):
         while True:
-            #print(np.array(self.consume()).reshape((224, 224, 3)))
-            self.publish((np.array(self.consume()).reshape((224, 224, 3)), None))
+            ar=self.consume()
+            w1=int.from_bytes(ar[0:4].tobytes(),'little')
+            h1 = int.from_bytes(ar[4:8].tobytes(), 'little')
+            w2 = int.from_bytes(ar[8:12].tobytes(), 'little')
+            h2=int.from_bytes(ar[12:16].tobytes(),'little')
+            img=numpy.frombuffer(ar[16:16+w1*h1*3], dtype=numpy.uint8)
+            img=img.reshape((h1,w1,3))
+            depth=numpy.frombuffer(ar[16+w1*h1*3:], dtype=numpy.uint16)
+            depth=depth.reshape((h2,w2))
+            self.publish((img, depth,{}))
+
 
 import os
 
@@ -71,16 +100,26 @@ from rembrain_robot_framework.processes import WsRobotProcess, VideoPacker
 
 def main_func(args=None):
     process_map = {
+        "sensor_sender": WsRobotProcess,
         "command_receiver": WsRobotProcess,
         "command_worker": CommandWorker,
         "image_receiver": Sub,
         "depth_mixin": DepthMixin,
         "video_packer": VideoPacker,
-        "video_streamer": WsRobotProcess
+        "video_streamer": WsRobotProcess,
+        "state_receiver": StateReceiver
     }
 
     config = {
         "processes": {
+            "sensor_sender":{
+                "command_type": "push",
+                "exchange": "state",
+                "consume": ["robot_to_websocket"]
+            },
+            "state_receiver": {
+                "publish": ["robot_to_websocket"]
+            },
             "command_receiver": {
                 "command_type": "pull",
                 "exchange": "commands",
@@ -98,7 +137,7 @@ def main_func(args=None):
                 "publish": ["to_pack"]
             },
             "video_packer": {
-                "pack_type": "JPG",
+                "pack_type": "JPG_PNG",
                 "consume": ["to_pack"],
                 "publish": ["image_processed"]
             },
