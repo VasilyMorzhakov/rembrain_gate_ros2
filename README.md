@@ -13,3 +13,8 @@ colcon build
 source install/local_setup.sh
 ros2 run rembrain_gate_ros2 gate --ros-args -p "in:=['commands__json']" -p "out:=['camera0__img', 'state__json']"
 ```
+
+With the help of parameters when starting the module ros2 it is possible to configure the queues from which you need to receive data and the queues into which you need to put the. Specify the type of data to be transmitted
+
+In the queue name what is before __ queue name in ros and ws-gate (they must match)
+
