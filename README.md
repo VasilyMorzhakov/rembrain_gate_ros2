@@ -11,5 +11,5 @@ START
 ```
 colcon build
 source install/local_setup.sh
-ros2 run rembrain_gate_ros2 gate --ros-args --params-file gate_config.yaml
+ros2 run rembrain_gate_ros2 gate --ros-args -p "in:=['commands__json']" -p "out:=['camera0__img', 'state__json']"
 ```

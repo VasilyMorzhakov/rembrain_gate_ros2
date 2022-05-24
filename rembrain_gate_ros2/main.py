@@ -13,9 +13,9 @@ import numpy as np
 rclpy.init(args=None)
 
 class Pub(Node):
-    def __init__(self):
+    def __init__(self, ros_exchange):
         super().__init__('rembrain_gate_ros2')
-        self.publisher_ = self.create_publisher(String, 'commands', 10)
+        self.publisher_ = self.create_publisher(String, ros_exchange, 10)
 
     def pub(self, msg):
         self.publisher_.publish(msg)
@@ -25,16 +25,28 @@ class Sub(RobotProcess):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.node = Node("sub")
-        self.subscription = self.node.create_subscription(
-            Image,
-            'Image',
-            self.listener_callback,
-            10)
-        self.subscription  # prevent unused variable warning
+        self.type = kwargs["type"]
+        self.consume_param = kwargs["consume_ros"][0]
+        self.subscription = None
+        if self.type == "img":
+            self.subscription = self.node.create_subscription(
+                Image,
+                self.consume_param,
+                self.listener_callback,
+                10)
+        elif self.type == "json":
+            self.subscription = self.node.create_subscription(
+                String,
+                self.consume_param,
+                self.listener_callback,
+                10)
 
 
     def listener_callback(self, msg):
-        self.publish(msg.data)
+        if self.type == "img":
+            self.publish(msg.data)
+        elif self.type == "json":
+            self.publish(msg.data.encode("utf-8"))
 
     def run(self) -> None:
         rclpy.spin(self.node)
@@ -44,14 +56,16 @@ class Sub(RobotProcess):
 class CommandWorker(RobotProcess):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.pub = Pub()
+        self.consume_param = list(self.consume_queues.keys())[0]
+        self.publish_param = kwargs["publish_ros"][0]
+        self.pub = Pub(self.publish_param)
 
     def run(self) -> None:
         self.log.info(f"{self.name} robot worker started")
 
         while True:
-            if not self.consume_queues["commands_ros"].empty():
-                command: dict = self.consume(queue_name="commands_ros")
+            if not self.consume_queues[self.consume_param].empty():
+                command: dict = self.consume(queue_name=self.consume_param)
                 msg = String()
                 msg.data = json.dumps(command)
                 self.pub.pub(msg)
@@ -70,46 +84,75 @@ from rembrain_robot_framework.processes import WsRobotProcess, VideoPacker
 
 
 def main_func(args=None):
-    process_map = {
-        "command_receiver": WsRobotProcess,
-        "command_worker": CommandWorker,
-        "image_receiver": Sub,
-        "depth_mixin": DepthMixin,
-        "video_packer": VideoPacker,
-        "video_streamer": WsRobotProcess
-    }
+    param = Node("param")
+    param.declare_parameter('in', None)
+    in_param = param.get_parameter('in').get_parameter_value().string_array_value
 
-    config = {
-        "processes": {
-            "command_receiver": {
-                "command_type": "pull",
-                "exchange": "commands",
-                "data_type": "json",
-                "publish": ["commands_ros"]
-            },
-            "command_worker": {
-                "consume": ["commands_ros"]
-            },
-            "image_receiver": {
-                "publish": ["image_ros"]
-            },
-            "depth_mixin": {
-                "consume": ["image_ros"],
-                "publish": ["to_pack"]
-            },
-            "video_packer": {
-                "pack_type": "JPG",
-                "consume": ["to_pack"],
-                "publish": ["image_processed"]
-            },
-            "video_streamer": {
-                "command_type": "push_loop",
-                "exchange": "camera0",
-                "consume": ["image_processed"]
+    param.declare_parameter('out', None)
+    out_param = param.get_parameter('out').get_parameter_value().string_array_value
+
+    process_map = {}
+    config = {"processes": {}}
+
+    for i in range(len(in_param)):
+        param = in_param[i].split("__")
+        if param[1] == "json":
+            process_map["command_receiver_" + str(i)] = WsRobotProcess
+            process_map["command_worker_" + str(i)] = CommandWorker
+            config["processes"]["command_receiver_" + str(i)] = {
+                    "command_type": "pull",
+                    "exchange": param[0],
+                    "data_type": "json",
+                    "publish": ["commands_ros_" + str(i)]
+                }
+            config["processes"]["command_worker_" + str(i)] = {
+                    "consume": ["commands_ros_" + str(i)],
+                    "publish_ros": [param[0]]
+                }
+
+    for i in range(len(out_param)):
+        param = out_param[i].split("__")
+        print(param)
+        if param[1] == "img":
+            process_map["image_receiver_" + str(i)] = Sub
+            process_map["depth_mixin_" + str(i)] = DepthMixin
+            process_map["video_packer_" + str(i)] = VideoPacker
+            process_map["video_streamer_" + str(i)] = WsRobotProcess
+
+            config["processes"]["image_receiver_" + str(i)] = {
+                "type": "img",
+                "consume_ros": [param[0]],
+                "publish": ["image_ros_" + str(i)]
             }
+            config["processes"]["depth_mixin_" + str(i)] = {
+                "consume": ["image_ros_" + str(i)],
+                "publish": ["to_pack_" + str(i)]
+            }
+            config["processes"]["video_packer_" + str(i)] = {
+                "pack_type": "JPG",
+                "consume": ["to_pack_" + str(i)],
+                "publish": ["image_processed_" + str(i)]
+            }
+            config["processes"]["video_streamer_" + str(i)] = {
+                "command_type": "push_loop",
+                "consume": ["image_processed_" + str(i)],
+                "exchange": param[0]
+            }
+        
+        elif param[1] == "json":
+            process_map["json_receiver_" + str(i)] = Sub
+            process_map["json_streamer_" + str(i)] = WsRobotProcess
 
-        }
-    }
+            config["processes"]["json_receiver_" + str(i)] = {
+                "type": "json",
+                "consume_ros": [param[0]],
+                "publish": ["json_ros_" + str(i)]
+            }
+            config["processes"]["json_streamer_" + str(i)] = {
+                "command_type": "push_loop",
+                "consume": ["json_ros_" + str(i)],
+                "exchange": param[0]
+            }
 
     processes = {p: {"process_class": process_map[p]} for p in config["processes"]}
 
