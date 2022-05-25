@@ -11,6 +11,11 @@ import os
 from rembrain_robot_framework import RobotProcess
 from sensor_msgs.msg import Image
 
+import os
+
+from rembrain_robot_framework import RobotDispatcher
+from rembrain_robot_framework.processes import WsRobotProcess, VideoPacker
+
 import numpy as np
 rclpy.init(args=None)
 
@@ -105,13 +110,6 @@ class DepthMixin(RobotProcess):
             self.publish((img, depth,{}))
 
 
-import os
-
-from rembrain_robot_framework import RobotDispatcher
-from rembrain_robot_framework.processes import WsRobotProcess, VideoPacker
-
-
-
 def main_func(args=None):
     param = Node("param")
     param.declare_parameter('in', None)
@@ -141,8 +139,7 @@ def main_func(args=None):
 
     for i in range(len(out_param)):
         param = out_param[i].split("__")
-        print(param)
-        if param[1] == "img":
+        if param[1] == "jpgpng":
             process_map["image_receiver_" + str(i)] = Sub
             process_map["depth_mixin_" + str(i)] = DepthMixin
             process_map["video_packer_" + str(i)] = VideoPacker
