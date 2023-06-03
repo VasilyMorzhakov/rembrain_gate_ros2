@@ -108,6 +108,18 @@ class DepthMixin(RobotProcess):
             depth=numpy.frombuffer(ar[16+w1*h1*3:], dtype=numpy.uint16)
             depth=depth.reshape((h2,w2))
             self.publish((img, depth,{}))
+            
+class RgbMixin(RobotProcess):
+    def __init__(self,*args,**kwargs):
+        super().__init__(*args,**kwargs)
+        self.width=kwargs["width"]
+        self.height=kwargs["height"]
+    def run(self):
+        while True:
+            ar=self.consume()
+            img=numpy.frombuffer(ar[self.width*self.height*3], dtype=numpy.uint8)
+            img=img.reshape((self.height,self.width,3))
+            self.publish((img, None,{}))
 
 
 def main_func(args=None):
@@ -155,6 +167,33 @@ def main_func(args=None):
                 "publish": ["to_pack_" + str(i)]
             }
             config["processes"]["video_packer_" + str(i)] = {
+                "pack_type": "JPG_PNG",
+                "consume": ["to_pack_" + str(i)],
+                "publish": ["image_processed_" + str(i)]
+            }
+            config["processes"]["video_streamer_" + str(i)] = {
+                "command_type": "push_loop",
+                "consume": ["image_processed_" + str(i)],
+                "exchange": param[0]
+            }
+        elif param[1] == "jpg":
+            process_map["image_receiver_" + str(i)] = Sub
+            process_map["depth_mixin_" + str(i)] = RgbMixin
+            process_map["video_packer_" + str(i)] = VideoPacker
+            process_map["video_streamer_" + str(i)] = WsRobotProcess
+
+            config["processes"]["image_receiver_" + str(i)] = {
+                "type": "img",
+                "consume_ros": [param[0]],
+                "publish": ["image_ros_" + str(i)]
+            }
+            config["processes"]["rgb_mixin_" + str(i)] = {
+                "width": int(param[2]),
+                "height": int(param[3]),
+                "consume": ["image_ros_" + str(i)],
+                "publish": ["to_pack_" + str(i)]
+            }
+            config["processes"]["video_packer_" + str(i)] = {
                 "pack_type": "JPG",
                 "consume": ["to_pack_" + str(i)],
                 "publish": ["image_processed_" + str(i)]
@@ -164,7 +203,6 @@ def main_func(args=None):
                 "consume": ["image_processed_" + str(i)],
                 "exchange": param[0]
             }
-        
         elif param[1] == "json":
             process_map["json_receiver_" + str(i)] = Sub
             process_map["json_streamer_" + str(i)] = WsRobotProcess
