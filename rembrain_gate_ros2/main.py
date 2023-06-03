@@ -117,7 +117,7 @@ class RgbMixin(RobotProcess):
     def run(self):
         while True:
             ar=self.consume()
-            img=numpy.frombuffer(ar[self.width*self.height*3], dtype=numpy.uint8)
+            img=numpy.frombuffer(ar, dtype=numpy.uint8)
             img=img.reshape((self.height,self.width,3))
             self.publish((img, None,{}))
 
@@ -178,7 +178,7 @@ def main_func(args=None):
             }
         elif param[1] == "jpg":
             process_map["image_receiver_" + str(i)] = Sub
-            process_map["depth_mixin_" + str(i)] = RgbMixin
+            process_map["rgb_mixin_" + str(i)] = RgbMixin
             process_map["video_packer_" + str(i)] = VideoPacker
             process_map["video_streamer_" + str(i)] = WsRobotProcess
 
