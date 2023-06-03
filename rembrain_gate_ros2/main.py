@@ -150,7 +150,7 @@ def main_func(args=None):
                 }
 
     for i in range(len(out_param)):
-        param = out_param[i].split("__")
+        param = out_param[i].split(":")
         if param[2] == "jpgpng":
             process_map["image_receiver_" + str(i)] = Sub
             process_map["depth_mixin_" + str(i)] = DepthMixin
