@@ -17,6 +17,7 @@ Required env variables to start rembrain_gate_ros2:
 
 START
 ```
+cd ~/ros2_ws
 colcon build
 source install/local_setup.sh
 ros2 run rembrain_gate_ros2 gate --ros-args -p "in:=['commands__json']" -p "out:=['camera0__jpgpng', 'state__json']"
