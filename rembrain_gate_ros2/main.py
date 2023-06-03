@@ -134,13 +134,13 @@ def main_func(args=None):
     config = {"processes": {}}
 
     for i in range(len(in_param)):
-        param = in_param[i].split("__")
-        if param[1] == "json":
+        param = in_param[i].split(":")
+        if param[2] == "json":
             process_map["command_receiver_" + str(i)] = WsRobotProcess
             process_map["command_worker_" + str(i)] = CommandWorker
             config["processes"]["command_receiver_" + str(i)] = {
                     "command_type": "pull",
-                    "exchange": param[0],
+                    "exchange": param[1],
                     "data_type": "json",
                     "publish": ["commands_ros_" + str(i)]
                 }
@@ -151,7 +151,7 @@ def main_func(args=None):
 
     for i in range(len(out_param)):
         param = out_param[i].split("__")
-        if param[1] == "jpgpng":
+        if param[2] == "jpgpng":
             process_map["image_receiver_" + str(i)] = Sub
             process_map["depth_mixin_" + str(i)] = DepthMixin
             process_map["video_packer_" + str(i)] = VideoPacker
@@ -174,9 +174,9 @@ def main_func(args=None):
             config["processes"]["video_streamer_" + str(i)] = {
                 "command_type": "push_loop",
                 "consume": ["image_processed_" + str(i)],
-                "exchange": param[0]
+                "exchange": param[1]
             }
-        elif param[1] == "jpg":
+        elif param[2] == "jpg":
             process_map["image_receiver_" + str(i)] = Sub
             process_map["rgb_mixin_" + str(i)] = RgbMixin
             process_map["video_packer_" + str(i)] = VideoPacker
@@ -188,8 +188,8 @@ def main_func(args=None):
                 "publish": ["image_ros_" + str(i)]
             }
             config["processes"]["rgb_mixin_" + str(i)] = {
-                "width": int(param[2]),
-                "height": int(param[3]),
+                "width": int(param[3]),
+                "height": int(param[4]),
                 "consume": ["image_ros_" + str(i)],
                 "publish": ["to_pack_" + str(i)]
             }
@@ -201,9 +201,9 @@ def main_func(args=None):
             config["processes"]["video_streamer_" + str(i)] = {
                 "command_type": "push_loop",
                 "consume": ["image_processed_" + str(i)],
-                "exchange": param[0]
+                "exchange": param[1]
             }
-        elif param[1] == "json":
+        elif param[2] == "json":
             process_map["json_receiver_" + str(i)] = Sub
             process_map["json_streamer_" + str(i)] = WsRobotProcess
 
@@ -215,7 +215,7 @@ def main_func(args=None):
             config["processes"]["json_streamer_" + str(i)] = {
                 "command_type": "push_loop",
                 "consume": ["json_ros_" + str(i)],
-                "exchange": param[0]
+                "exchange": param[1]
             }
 
     processes = {p: {"process_class": process_map[p]} for p in config["processes"]}
